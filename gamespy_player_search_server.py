@@ -165,7 +165,7 @@ class PlayerSearch(LineReceiver):
     def perform_search(self, data_parsed):
         """Reference: http://www.pipian.net/ierukana/hacking/ds_nwc.html
 
-        Pokémon Gen 4 GPSP buddy search by lastname. The server returns zero
+        Pokemon Gen 4 GPSP buddy search by lastname. The server returns zero
         or more BUDDY_SEARCH_RECORD responses, then terminates with bsrdone.
         """
         sesskey = data_parsed.get('sesskey', '')
