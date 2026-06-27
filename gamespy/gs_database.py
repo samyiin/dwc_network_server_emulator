@@ -247,6 +247,18 @@ class GamespyDatabase(object):
                 profile = self.get_dict(row)
         return profile
 
+    def get_profiles_by_lastname(self, lastname):
+        if not lastname:
+            return []
+
+        with Transaction(self.conn) as tx:
+            rows = tx.queryall(
+                "SELECT * FROM users WHERE lastname = ?",
+                (lastname,)
+            )
+
+        return [self.get_dict(row) for row in rows]
+
     def perform_login(self, userid, password, gsbrcd):
         with Transaction(self.conn) as tx:
             row = tx.queryone(

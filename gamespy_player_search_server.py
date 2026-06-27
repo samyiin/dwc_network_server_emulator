@@ -90,6 +90,8 @@ class PlayerSearch(LineReceiver):
 
                 if data_parsed['__cmd__'] == "otherslist":
                     self.perform_otherslist(data_parsed)
+                elif data_parsed['__cmd__'] == "search":
+                    self.perform_search(data_parsed)
                 else:
                     logger.log(logging.DEBUG,
                                "Found unknown search command, don't know"
@@ -159,6 +161,70 @@ class PlayerSearch(LineReceiver):
 
         logger.log(logging.DEBUG, "SENDING: %s", msg)
         self.transport.write(bytes(msg))
+
+    def perform_search(self, data_parsed):
+        """Reference: http://www.pipian.net/ierukana/hacking/ds_nwc.html
+
+        Pokémon Gen 4 GPSP buddy search by lastname. The server returns zero
+        or more BUDDY_SEARCH_RECORD responses, then terminates with bsrdone.
+        """
+        sesskey = data_parsed.get('sesskey', '')
+        profileid = data_parsed.get('profileid', '')
+        namespaceid = data_parsed.get('namespaceid', '')
+        lastname = data_parsed.get('lastname', '')
+        gamename = data_parsed.get('gamename', '')
+
+        logger.log(logging.DEBUG,
+                   "GPSP search request: sesskey=%s profileid=%s "
+                   "namespaceid=%s lastname=%s gamename=%s",
+                   sesskey, profileid, namespaceid, lastname, gamename)
+
+        profiles = self.db.get_profiles_by_lastname(lastname)
+        logger.log(logging.DEBUG,
+                   "GPSP search found %d profile(s) for lastname=%s",
+                   len(profiles), lastname)
+
+        outbound = ""
+        for profile in profiles:
+            outbound += gs_query.create_gamespy_message(
+                self._build_bsr_message(profile)
+            )
+
+        outbound += gs_query.create_gamespy_message([
+            ('__cmd__', "bsrdone"),
+            ('__cmd_val__', ""),
+        ])
+
+        logger.log(logging.DEBUG, "SENDING: %s", outbound)
+        self.transport.write(bytes(outbound))
+
+    def _build_bsr_message(self, profile):
+        """Build a buddy-search result record mirroring GPCM pi fields."""
+        sig = utils.generate_random_hex_str(32)
+        msg_d = [
+            ('__cmd__', "bsr"),
+            ('__cmd_val__', ""),
+            ('profileid', profile['profileid']),
+            ('nick', profile['uniquenick']),
+            ('userid', profile['userid']),
+            ('email', profile['email']),
+            ('sig', sig),
+            ('uniquenick', profile['uniquenick']),
+            ('pid', profile['pid']),
+        ]
+
+        if profile.get('firstname'):
+            msg_d.append(('firstname', profile['firstname']))
+
+        if profile.get('lastname'):
+            msg_d.append(('lastname', profile['lastname']))
+
+        msg_d.extend([
+            ('lon', profile['lon']),
+            ('lat', profile['lat']),
+            ('loc', profile['loc']),
+        ])
+        return msg_d
 
 
 if __name__ == "__main__":
